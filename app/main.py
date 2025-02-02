@@ -4,6 +4,8 @@ import sys
 LEXER = {
     '(': 'LEFT_PAREN ( null',
     ')': 'RIGHT_PAREN ) null',
+    '{': 'LEFT_BRACE { null',
+    '}': 'RIGHT_BRACE } null',
     None: 'EOF  null',
 }
 
