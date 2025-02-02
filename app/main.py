@@ -13,10 +13,12 @@ LEXER = {
     '-': 'MINUS - null',
     ';': 'SEMICOLON ; null',
     '=': 'EQUAL = null',
+    '!': 'BANG ! null',
     '==': 'EQUAL_EQUAL == null',
+    '!=': 'BANG_EQUAL != null',
 }
 
-maybe_two = '='
+maybe_two = '=!'
 
 
 
