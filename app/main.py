@@ -7,6 +7,7 @@ LEXER = {
     '{': 'LEFT_BRACE { null',
     '}': 'RIGHT_BRACE } null',
     '*': 'STAR * null',
+    '/': 'SLASH / null',
     '.': 'DOT . null',
     ',': 'COMMA , null',
     '+': 'PLUS + null',
@@ -31,6 +32,10 @@ class Tokenizer:
         self.scan(code)
 
     def scan(self, code):
+        def next_match(char):
+            if col_no < len(line) and (c := line[col_no]) == char:
+                return c
+
         self.tokens = []
         self.has_errors = False
         for line_no, line in enumerate(code.splitlines(), 1):
@@ -40,9 +45,12 @@ class Tokenizer:
                     skip -= 1
                     continue
 
-                if c in maybe_two and col_no < len(line) and (next_c := line[col_no]) == '=':
+                if c in maybe_two and (next_c := next_match('=')):
                     c = c + next_c
                     skip += 1
+
+                if c == '/' and (next_c := next_match('/')):
+                    break
 
                 if (token := LEXER.get(c)) is None:
                     self.has_errors = True
