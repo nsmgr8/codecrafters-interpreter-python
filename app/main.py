@@ -68,12 +68,16 @@ class Tokenizer:
                         self.set_error(line_no, 'Unterminated string.')
                         break
 
-                if c in digits_dot:
+                if c in string.digits:
+                    i = 0
                     for i, cc in enumerate(line[col_no:]):
                         if cc not in digits_dot:
                             break
                     n = line[col_no-1:col_no+i]
-                    self.tokens.append(f'NUMBER {n} {float(n)}')
+                    if n.endswith('.') or len([x for x in n if x == '.']) > 1:
+                        self.set_error(line_no, f'Invalid number {n}')
+                    else:
+                        self.tokens.append(f'NUMBER {n} {float(n)}')
                     skip = i
                     continue
 
