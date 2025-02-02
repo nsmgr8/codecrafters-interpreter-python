@@ -20,9 +20,14 @@ class Tokenizer:
 
     def scan(self, code):
         self.tokens = []
+        self.has_errors = False
         for line_no, line in enumerate(code.splitlines(), 1):
             for _col_no, c in enumerate(line, 1):
-                self.tokens.append(LEXER.get(c, f'[line {line_no}] Error: Unexpected character: {c}'))
+                if (token := LEXER.get(c)) is None:
+                    self.has_errors = True
+                else:
+                    token = f'[line {line_no}] Error: Unexpected character: {c}'
+                self.tokens.append(token)
         self.tokens.append('EOF null')
 
 
@@ -44,6 +49,9 @@ def main():
     tokenizer = Tokenizer(code)
     for token in tokenizer.tokens:
         print(token)
+
+    if tokenizer.has_errors:
+        raise SystemExit(65)
 
 
 
