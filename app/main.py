@@ -14,11 +14,15 @@ LEXER = {
     ';': 'SEMICOLON ; null',
     '=': 'EQUAL = null',
     '!': 'BANG ! null',
+    '<': 'LESS < null',
+    '>': 'GREATER > null',
     '==': 'EQUAL_EQUAL == null',
     '!=': 'BANG_EQUAL != null',
+    '<=': 'LESS_EQUAL <= null',
+    '>=': 'GREATER_EQUAL >= null',
 }
 
-maybe_two = '=!'
+maybe_two = '=!<>'
 
 
 
