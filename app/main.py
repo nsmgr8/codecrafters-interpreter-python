@@ -6,6 +6,12 @@ LEXER = {
     ')': 'RIGHT_PAREN ) null',
     '{': 'LEFT_BRACE { null',
     '}': 'RIGHT_BRACE } null',
+    '*': 'STAR * null',
+    '.': 'DOT . null',
+    ',': 'COMMA , null',
+    '+': 'PLUS + null',
+    '-': 'MINUS + null',
+    ';': 'SEMICOLON + null',
     None: 'EOF  null',
 }
 
