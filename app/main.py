@@ -10,8 +10,8 @@ LEXER = {
     '.': 'DOT . null',
     ',': 'COMMA , null',
     '+': 'PLUS + null',
-    '-': 'MINUS + null',
-    ';': 'SEMICOLON + null',
+    '-': 'MINUS - null',
+    ';': 'SEMICOLON ; null',
     None: 'EOF  null',
 }
 
