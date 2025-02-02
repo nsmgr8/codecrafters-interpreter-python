@@ -126,7 +126,7 @@ def get_code():
         return command, file.read()
 
 def parenthesize(name, *args):
-    return f'({name}' + (' ' if args else '') + ' '.join(args) + ')'
+    return f'({name}' + (' ' if args else '') + ' '.join(map(str, args)) + ')'
 
 
 class Token(NamedTuple):
@@ -147,7 +147,16 @@ class Literal(Expr):
     value: Any = None
 
     def accept(self):
-        return 'nil' if self.value is None else str(self.value)
+        return self.value
+
+    def __str__(self):
+        if self.value is None:
+            return 'nil'
+        if self.value is True:
+            return 'true'
+        if self.value is False:
+            return 'false'
+        return str(self.value)
 
 @dataclass
 class Unary(Expr):
@@ -156,6 +165,9 @@ class Unary(Expr):
 
     def accept(self):
         return parenthesize(self.operator.lexeme, self.right.accept())
+
+    def __str__(self):
+        return parenthesize(self.operator.lexeme, str(self.right))
 
 
 @dataclass
@@ -167,6 +179,9 @@ class Binary(Expr):
     def accept(self):
         return parenthesize(self.operator.lexeme, self.left.accept(), self.right.accept())
 
+    def __str__(self):
+        return parenthesize(self.operator.lexeme, str(self.left), str(self.right))
+
 @dataclass
 class Grouping(Expr):
     expression: Expr
@@ -174,9 +189,16 @@ class Grouping(Expr):
     def accept(self):
         return parenthesize('group', self.expression.accept())
 
+    def __str__(self):
+        return parenthesize('group', str(self.expression))
+
 class AST:
-    def print(self, expression):
-        return expression and expression.accept()
+    def __init__(self, expression):
+        self.expression = expression
+
+    def print(self):
+        if self.expression:
+            print(self.expression)
 
 class Tokenizer:
     def __init__(self, code, log=False):
@@ -366,11 +388,12 @@ class Parser:
 
     def primary(self):
         if self.match(TokenType.FALSE):
-            return Literal('false')
+            return Literal(False)
         if self.match(TokenType.TRUE):
-            return Literal('true')
+            return Literal(True)
         if self.match(TokenType.NIL):
-            return Literal('nil')
+            return Literal(None)
+
 
         if self.match(TokenType.NUMBER, TokenType.STRING):
             return Literal(self.previous().literal)
@@ -439,7 +462,7 @@ def main():
     tokenizer = Tokenizer(code, command == 'tokenize')
     if command == 'parse':
         tree = Parser(tokenizer.tokens).parse()
-        print(AST().print(tree))
+        AST(tree).print()
 
     if has_errors:
         raise SystemExit(65)
