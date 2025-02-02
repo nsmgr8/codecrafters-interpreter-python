@@ -12,8 +12,18 @@ LEXER = {
     '+': 'PLUS + null',
     '-': 'MINUS - null',
     ';': 'SEMICOLON ; null',
-    None: 'EOF  null',
 }
+
+class Tokenizer:
+    def __init__(self, code):
+        self.scan(code)
+
+    def scan(self, code):
+        self.tokens = []
+        for line_no, line in enumerate(code.splitlines(), 1):
+            for _col_no, c in enumerate(line, 1):
+                self.tokens.append(LEXER.get(c, f'[line {line_no}] Error: Unexpected character: {c}'))
+        self.tokens.append('EOF null')
 
 
 def main():
@@ -29,12 +39,12 @@ def main():
         exit(1)
 
     with open(filename) as file:
-        file_contents = file.read()
+        code = file.read()
 
-    for c in file_contents:
-        print(LEXER.get(c))
+    tokenizer = Tokenizer(code)
+    for token in tokenizer.tokens:
+        print(token)
 
-    print("EOF  null")
 
 
 if __name__ == "__main__":
