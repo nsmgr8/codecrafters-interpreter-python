@@ -1,4 +1,5 @@
 import sys
+import string
 
 
 LEXER = {
@@ -41,6 +42,8 @@ class Tokenizer:
         for line_no, line in enumerate(code.splitlines(), 1):
             skip = 0
             for col_no, c in enumerate(line, 1):
+                if c in string.whitespace:
+                    continue
                 if skip:
                     skip -= 1
                     continue
