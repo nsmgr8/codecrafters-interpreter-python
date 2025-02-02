@@ -63,11 +63,11 @@ class Tokenizer:
                         self.tokens.append(f'STRING "{s}" {s}')
                         continue
                     else:
-                        self.set_error(line_no, 'Unterminated string')
+                        self.set_error(line_no, 'Unterminated string.')
                         break
 
                 if (token := LEXER.get(c)) is None:
-                    self.set_error(line_no, f'Unexpected character: {c}\n')
+                    self.set_error(line_no, f'Unexpected character: {c}')
                 else:
                     self.tokens.append(token)
 
