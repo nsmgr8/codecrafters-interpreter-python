@@ -58,7 +58,7 @@ class Tokenizer:
                 if c == '"':
                     end = line.find('"', col_no)
                     s = line[col_no:end]
-                    skip += end - col_no
+                    skip += end - col_no + 1
                     self.tokens.append(f'STRING "{s}" {s}')
                     continue
 
