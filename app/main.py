@@ -23,9 +23,6 @@ def main():
     with open(filename) as file:
         file_contents = file.read()
 
-    if file_contents:
-        raise NotImplementedError("Scanner not implemented")
-
     for c in file_contents:
         print(LEXER.get(c))
 
