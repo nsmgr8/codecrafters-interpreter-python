@@ -12,7 +12,13 @@ LEXER = {
     '+': 'PLUS + null',
     '-': 'MINUS - null',
     ';': 'SEMICOLON ; null',
+    '=': 'EQUAL = null',
+    '==': 'EQUAL_EQUAL == null',
 }
+
+maybe_two = '='
+
+
 
 class Tokenizer:
     def __init__(self, code):
@@ -22,12 +28,22 @@ class Tokenizer:
         self.tokens = []
         self.has_errors = False
         for line_no, line in enumerate(code.splitlines(), 1):
-            for _col_no, c in enumerate(line, 1):
+            skip = 0
+            for col_no, c in enumerate(line, 1):
+                if skip:
+                    skip -= 1
+                    continue
+
+                if c in maybe_two and col_no < len(line) and (next_c := line[col_no]) == '=':
+                    c = c + next_c
+                    skip += 1
+
                 if (token := LEXER.get(c)) is None:
                     self.has_errors = True
                     sys.stderr.write(f'[line {line_no}] Error: Unexpected character: {c}\n')
                 else:
                     self.tokens.append(token)
+
         self.tokens.append('EOF  null')
 
 
@@ -44,7 +60,7 @@ def get_code():
         exit(1)
 
     with open(filename) as file:
-        return file.read()
+        return file.read().strip()
 
 def main():
     code = get_code()
