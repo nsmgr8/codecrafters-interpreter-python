@@ -24,9 +24,10 @@ LEXER = {
     '>=': 'GREATER_EQUAL >= null',
 }
 
-maybe_two = '=!<>'
-digits_dot = '.' + string.digits
-
+comp_start = '=!<>'
+num_chars = '.' + string.digits
+ident_start = string.ascii_letters + '_'
+ident_chars = ident_start + string.digits
 
 
 class Tokenizer:
@@ -37,6 +38,36 @@ class Tokenizer:
         def next_match(char):
             if col_no < len(line) and (c := line[col_no]) == char:
                 return c
+
+        def string_literal():
+            end = line.find('"', col_no)
+            if end > 0:
+                s = line[col_no:end]
+                self.tokens.append(f'STRING "{s}" {s}')
+                return len(s) + 1
+            self.set_error(line_no, 'Unterminated string.')
+
+        def number():
+            i = 0
+            for i, cc in enumerate(line[col_no:]):
+                if cc not in num_chars:
+                    break
+            n = line[col_no-1:col_no+i]
+            if n.endswith('.') or len([x for x in n if x == '.']) > 1:
+                self.set_error(line_no, f'Invalid number {n}')
+            else:
+                self.tokens.append(f'NUMBER {n} {float(n)}')
+            return len(n) - 1
+
+        def idetifier():
+            i = 0
+            for i, cc in enumerate(line[col_no:]):
+                if cc not in ident_chars:
+                    break
+            n = line[col_no-1:col_no+i]
+            self.tokens.append(f'IDENTIFIER {n} null')
+            return len(n) - 1
+
 
         self.tokens = []
         self.has_errors = False
@@ -50,35 +81,25 @@ class Tokenizer:
                     skip -= 1
                     continue
 
-                if c in maybe_two and (next_c := next_match('=')):
+                if c in comp_start and (next_c := next_match('=')):
                     c = c + next_c
-                    skip += 1
+                    skip = 1
 
                 if c == '/' and (next_c := next_match('/')):
                     break
 
                 if c == '"':
-                    end = line.find('"', col_no)
-                    if end > 0:
-                        s = line[col_no:end]
-                        skip += end - col_no + 1
-                        self.tokens.append(f'STRING "{s}" {s}')
+                    if skip := string_literal():
                         continue
                     else:
-                        self.set_error(line_no, 'Unterminated string.')
                         break
 
                 if c in string.digits:
-                    i = 0
-                    for i, cc in enumerate(line[col_no:]):
-                        if cc not in digits_dot:
-                            break
-                    n = line[col_no-1:col_no+i]
-                    if n.endswith('.') or len([x for x in n if x == '.']) > 1:
-                        self.set_error(line_no, f'Invalid number {n}')
-                    else:
-                        self.tokens.append(f'NUMBER {n} {float(n)}')
-                    skip = i
+                    skip = number()
+                    continue
+
+                if c in ident_start:
+                    skip = idetifier()
                     continue
 
                 if (token := LEXER.get(c)) is None:
