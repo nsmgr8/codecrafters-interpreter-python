@@ -63,16 +63,19 @@ class Tokenizer:
                         self.tokens.append(f'STRING "{s}" {s}')
                         continue
                     else:
-                        sys.stderr.write(f'[line {line_no}] Error: Unterminated string.\n')
+                        self.set_error(line_no, 'Unterminated string')
                         break
 
                 if (token := LEXER.get(c)) is None:
-                    self.has_errors = True
-                    sys.stderr.write(f'[line {line_no}] Error: Unexpected character: {c}\n')
+                    self.set_error(line_no, f'Unexpected character: {c}\n')
                 else:
                     self.tokens.append(token)
 
         self.tokens.append('EOF  null')
+
+    def set_error(self, line_no, msg):
+        self.has_errors = True
+        sys.stderr.write(f'[line {line_no}] Error: {msg}\n')
 
 
 def get_code():
