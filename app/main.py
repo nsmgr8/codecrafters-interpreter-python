@@ -25,6 +25,7 @@ LEXER = {
 }
 
 maybe_two = '=!<>'
+digits_dot = '.' + string.digits
 
 
 
@@ -40,6 +41,7 @@ class Tokenizer:
         self.tokens = []
         self.has_errors = False
         for line_no, line in enumerate(code.splitlines(), 1):
+            line += '\n'
             skip = 0
             for col_no, c in enumerate(line, 1):
                 if c in string.whitespace:
@@ -65,6 +67,15 @@ class Tokenizer:
                     else:
                         self.set_error(line_no, 'Unterminated string.')
                         break
+
+                if c in digits_dot:
+                    for i, cc in enumerate(line[col_no:]):
+                        if cc not in digits_dot:
+                            break
+                    n = line[col_no-1:col_no+i]
+                    self.tokens.append(f'NUMBER {n} {float(n)}')
+                    skip = i
+                    continue
 
                 if (token := LEXER.get(c)) is None:
                     self.set_error(line_no, f'Unexpected character: {c}')
