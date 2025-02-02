@@ -102,7 +102,7 @@ def get_code():
         exit(1)
 
     with open(filename) as file:
-        return file.read().strip()
+        return file.read()
 
 def main():
     code = get_code()
