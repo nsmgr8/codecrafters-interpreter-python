@@ -57,10 +57,14 @@ class Tokenizer:
 
                 if c == '"':
                     end = line.find('"', col_no)
-                    s = line[col_no:end]
-                    skip += end - col_no + 1
-                    self.tokens.append(f'STRING "{s}" {s}')
-                    continue
+                    if end > 0:
+                        s = line[col_no:end]
+                        skip += end - col_no + 1
+                        self.tokens.append(f'STRING "{s}" {s}')
+                        continue
+                    else:
+                        sys.stderr.write(f'[line {line_no}] Error: Unterminated string.\n')
+                        break
 
                 if (token := LEXER.get(c)) is None:
                     self.has_errors = True
