@@ -55,6 +55,13 @@ class Tokenizer:
                 if c == '/' and (next_c := next_match('/')):
                     break
 
+                if c == '"':
+                    end = line.find('"', col_no)
+                    s = line[col_no:end]
+                    skip += end - col_no
+                    self.tokens.append(f'STRING "{s}" {s}')
+                    continue
+
                 if (token := LEXER.get(c)) is None:
                     self.has_errors = True
                     sys.stderr.write(f'[line {line_no}] Error: Unexpected character: {c}\n')
