@@ -28,10 +28,10 @@ class Tokenizer:
                     sys.stderr.write(f'[line {line_no}] Error: Unexpected character: {c}\n')
                 else:
                     self.tokens.append(token)
-        self.tokens.append('EOF null')
+        self.tokens.append('EOF  null')
 
 
-def main():
+def get_code():
     if len(sys.argv) < 3:
         print("Usage: ./your_program.sh tokenize <filename>", file=sys.stderr)
         exit(1)
@@ -44,8 +44,10 @@ def main():
         exit(1)
 
     with open(filename) as file:
-        code = file.read()
+        return file.read()
 
+def main():
+    code = get_code()
     tokenizer = Tokenizer(code)
     for token in tokenizer.tokens:
         print(token)
