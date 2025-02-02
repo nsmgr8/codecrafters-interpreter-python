@@ -1,6 +1,13 @@
 import sys
 
 
+LEXER = {
+    '(': 'LEFT_PAREN ( null',
+    ')': 'RIGHT_PAREN ) null',
+    None: 'EOF  null',
+}
+
+
 def main():
     if len(sys.argv) < 3:
         print("Usage: ./your_program.sh tokenize <filename>", file=sys.stderr)
@@ -20,6 +27,9 @@ def main():
         raise NotImplementedError("Scanner not implemented")
     else:
         print("EOF  null") # Placeholder, remove this line when implementing the scanner
+
+    for c in file_contents:
+        print(LEXER.get(c))
 
 
 if __name__ == "__main__":
