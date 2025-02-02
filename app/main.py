@@ -25,9 +25,7 @@ class Tokenizer:
             for _col_no, c in enumerate(line, 1):
                 if (token := LEXER.get(c)) is None:
                     self.has_errors = True
-                else:
-                    token = f'[line {line_no}] Error: Unexpected character: {c}'
-                self.tokens.append(token)
+                self.tokens.append(token or f'[line {line_no}] Error: Unexpected character: {c}')
         self.tokens.append('EOF null')
 
 
