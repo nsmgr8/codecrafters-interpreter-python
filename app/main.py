@@ -5,16 +5,23 @@ from dataclasses import dataclass
 from typing import Any, NamedTuple
 
 
-has_errors = False
+error_code = 0
 
 class ParseError(Exception):
     ...
 
-class TokenType(StrEnum):
+class EvaluationError(Exception):
+    def __init__(self, line_no, msg):
+        self.line_no = line_no
+        self.msg = msg
+
+
+class StrUpperEnum(StrEnum):
     @staticmethod
-    def _generate_next_value_(name, *_args):
+    def _generate_next_value_(name, start, count, last_values):
         return name.upper()
 
+class TokenType(StrUpperEnum):
     LEFT_PAREN = auto()
     RIGHT_PAREN = auto()
     LEFT_BRACE = auto()
@@ -105,8 +112,8 @@ RESERVED_WORDS_START = set(w[0] for w in RESERVED_WORDS)
 
 
 def set_error(line_no, msg, where=""):
-    global has_errors
-    has_errors = True
+    global error_code
+    error_code = 65
     sys.stderr.write(f'[line {line_no}] Error{where}: {msg}\n')
 
 
@@ -118,7 +125,7 @@ def get_code():
     command = sys.argv[1]
     filename = sys.argv[2]
 
-    if command not in ("tokenize", "parse"):
+    if command not in ("tokenize", "parse", "evaluate"):
         print(f"Unknown command: {command}", file=sys.stderr)
         exit(1)
 
@@ -139,32 +146,60 @@ class Token(NamedTuple):
         return f'{self.type} {self.lexeme} {self.literal}'
 
 class Expr:
-    def accept(self) -> str:
+    def evaluate(self) -> Any:
         return ''
+
+    def is_truthy(self, value):
+        return bool(value)
+
+    def is_equal(self, left, right):
+        return left == right
+
+def to_str(value, preserve_int=False):
+    if value is None:
+        return 'nil'
+    if value is True:
+        return 'true'
+    if value is False:
+        return 'false'
+    if preserve_int and isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return str(value)
+
+def are_number_operands(left, right):
+    return isinstance(left, float) and isinstance(right, float)
+
+def either_numbers_or_strings_operands(left, right):
+    if isinstance(left, float) and isinstance(right, float):
+        return True
+    if isinstance(left, str) and isinstance(right, str):
+        return True
+    return False
 
 @dataclass
 class Literal(Expr):
     value: Any = None
 
-    def accept(self):
+    def evaluate(self):
         return self.value
 
     def __str__(self):
-        if self.value is None:
-            return 'nil'
-        if self.value is True:
-            return 'true'
-        if self.value is False:
-            return 'false'
-        return str(self.value)
+        return to_str(self.value)
 
 @dataclass
 class Unary(Expr):
     operator: Token
     right: Expr
 
-    def accept(self):
-        return parenthesize(self.operator.lexeme, self.right.accept())
+    def evaluate(self):
+        right = self.right.evaluate()
+        match self.operator.type:
+            case TokenType.BANG:
+                return not self.is_truthy(right)
+            case TokenType.MINUS:
+                if not isinstance(right, float):
+                    raise EvaluationError(self.operator.line, "Operand must be a number.")
+                return -right
 
     def __str__(self):
         return parenthesize(self.operator.lexeme, str(self.right))
@@ -176,8 +211,46 @@ class Binary(Expr):
     operator: Token
     right: Expr
 
-    def accept(self):
-        return parenthesize(self.operator.lexeme, self.left.accept(), self.right.accept())
+    def evaluate(self):
+        left = self.left.evaluate()
+        right = self.right.evaluate()
+        match self.operator.type:
+            case TokenType.MINUS:
+                if not are_number_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be number.")
+                return left - right
+            case TokenType.PLUS:
+                if not either_numbers_or_strings_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be two numbers or two strings.")
+                return left + right
+            case TokenType.SLASH:
+                if not are_number_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be number.")
+                return left / right
+            case TokenType.STAR:
+                if not are_number_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be number.")
+                return left * right
+            case TokenType.GREATER:
+                if not are_number_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be number.")
+                return left > right
+            case TokenType.GREATER_EQUAL:
+                if not are_number_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be number.")
+                return left >= right
+            case TokenType.LESS:
+                if not are_number_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be number.")
+                return left < right
+            case TokenType.LESS_EQUAL:
+                if not are_number_operands(left, right):
+                    raise EvaluationError(self.operator.line, "Operands must be number.")
+                return left <= right
+            case TokenType.BANG_EQUAL:
+                return not self.is_equal(left, right)
+            case TokenType.EQUAL_EQUAL:
+                return self.is_equal(left, right)
 
     def __str__(self):
         return parenthesize(self.operator.lexeme, str(self.left), str(self.right))
@@ -186,8 +259,8 @@ class Binary(Expr):
 class Grouping(Expr):
     expression: Expr
 
-    def accept(self):
-        return parenthesize('group', self.expression.accept())
+    def evaluate(self):
+        return self.expression.evaluate()
 
     def __str__(self):
         return parenthesize('group', str(self.expression))
@@ -201,14 +274,13 @@ class AST:
             print(self.expression)
 
 class Tokenizer:
-    def __init__(self, code, log=False):
-        self.log = log
-        self.scan(code)
+    def __init__(self, debug=False):
+        self.debug = debug
 
     def add_token(self, token_type, lexeme, literal, line):
         token = Token(token_type, lexeme, literal, line)
         self.tokens.append(token)
-        if self.log:
+        if self.debug:
             print(token)
 
 
@@ -260,10 +332,10 @@ class Tokenizer:
             line += '\n'
             skip = 0
             for col_no, c in enumerate(line, 1):
-                if c in string.whitespace:
-                    continue
                 if skip:
                     skip -= 1
+                    continue
+                if c in string.whitespace:
                     continue
 
                 if c in COMPARISON_TOKEN_START and (next_c := next_match('=')):
@@ -297,13 +369,12 @@ class Tokenizer:
                     self.add_token(token, c, 'null', line_no)
 
         self.add_token(TokenType.EOF, '',  'null', -1)
+        return self.tokens
 
 
 class Parser:
-    def __init__(self, tokens) -> None:
-        self.tokens = tokens
-
-    def parse(self):
+    def parse(self, code):
+        self.tokens = Tokenizer().scan(code)
         self.current = 0
         try:
             return self.expression()
@@ -312,16 +383,6 @@ class Parser:
 
     def expression(self):
         return self.equality()
-
-    def equality(self):
-        expr = self.comparison()
-
-        while self.match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL):
-            operator = self.previous()
-            right = self.comparison()
-            expr = Binary(expr, operator, right)
-
-        return expr
 
     def match(self, *types):
         for type in types:
@@ -347,6 +408,16 @@ class Parser:
 
     def peek(self):
         return self.tokens[self.current]
+
+    def equality(self):
+        expr = self.comparison()
+
+        while self.match(TokenType.BANG_EQUAL, TokenType.EQUAL_EQUAL):
+            operator = self.previous()
+            right = self.comparison()
+            expr = Binary(expr, operator, right)
+
+        return expr
 
     def comparison(self):
         expr = self.term()
@@ -443,29 +514,24 @@ class Parser:
             self.advance()
 
 
-def _test():
-    expression = Binary(
-        left=Unary(
-            operator=Token(TokenType.MINUS, "-", 'null', 1),
-            right=Literal(123)
-        ),
-        operator=Token(TokenType.STAR, "*", 'null', 1),
-        right=Grouping(Literal(45.67))
-    )
-
-    print(AST().print(expression))
-
-
-
 def main():
+    global error_code
     command, code = get_code()
-    tokenizer = Tokenizer(code, command == 'tokenize')
-    if command == 'parse':
-        tree = Parser(tokenizer.tokens).parse()
-        AST(tree).print()
+    match command:
+        case 'tokenize':
+            Tokenizer(True).scan(code)
+        case 'parse':
+            AST(Parser().parse(code)).print()
+        case 'evaluate':
+            try:
+                if (tree := Parser().parse(code)) is not None:
+                    print(to_str(tree.evaluate(), True))
+            except EvaluationError as e:
+                sys.stderr.write(f'{e.msg}\n[line {e.line_no}]\n')
+                error_code = 70
 
-    if has_errors:
-        raise SystemExit(65)
+    if error_code:
+        raise SystemExit(error_code)
 
 
 
