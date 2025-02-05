@@ -125,7 +125,7 @@ def get_code():
     command = sys.argv[1]
     filename = sys.argv[2]
 
-    if command not in ("tokenize", "parse", "evaluate"):
+    if command not in ("tokenize", "parse", "evaluate", "run"):
         print(f"Unknown command: {command}", file=sys.stderr)
         exit(1)
 
@@ -134,26 +134,6 @@ def get_code():
 
 def parenthesize(name, *args):
     return f'({name}' + (' ' if args else '') + ' '.join(map(str, args)) + ')'
-
-
-class Token(NamedTuple):
-    type: TokenType
-    lexeme: str
-    literal: str | float | bool | None
-    line: int = 0
-
-    def __str__(self) -> str:
-        return f'{self.type} {self.lexeme} {self.literal}'
-
-class Expr:
-    def evaluate(self) -> Any:
-        return ''
-
-    def is_truthy(self, value):
-        return bool(value)
-
-    def is_equal(self, left, right):
-        return left == right
 
 def to_str(value, preserve_int=False):
     if value is None:
@@ -175,6 +155,26 @@ def either_numbers_or_strings_operands(left, right):
     if isinstance(left, str) and isinstance(right, str):
         return True
     return False
+
+
+class Token(NamedTuple):
+    type: TokenType
+    lexeme: str
+    literal: str | float | bool | None
+    line: int = 0
+
+    def __str__(self) -> str:
+        return f'{self.type} {self.lexeme} {self.literal}'
+
+class Expr:
+    def evaluate(self) -> Any:
+        return ''
+
+    def is_truthy(self, value):
+        return bool(value)
+
+    def is_equal(self, left, right):
+        return left == right
 
 @dataclass
 class Literal(Expr):
@@ -265,6 +265,24 @@ class Grouping(Expr):
     def __str__(self):
         return parenthesize('group', str(self.expression))
 
+
+class Statement: ...
+
+@dataclass
+class Print(Statement):
+    expression: Expr
+
+    def evaluate(self):
+        value = self.expression.evaluate()
+        print(to_str(value, True))
+
+@dataclass
+class Expression(Statement):
+    expression: Expr
+
+    def evaluate(self):
+        self.expression.evaluate()
+
 class AST:
     def __init__(self, expression):
         self.expression = expression
@@ -286,100 +304,138 @@ class Tokenizer:
 
     def scan(self, code):
         def next_match(char):
-            if col_no < len(line) and (c := line[col_no]) == char:
-                return c
+            next_idx = current_idx + 1
+            if next_idx < n and (next_c := code[next_idx]) == char:
+                return next_c
 
         def string_literal():
-            end = line.find('"', col_no)
+            end = code.find('"', current_idx+1)
             if end > 0:
-                s = line[col_no:end]
+                s = code[current_idx+1:end]
                 self.add_token(TokenType.STRING, f'"{s}"', s, line_no)
-                return len(s) + 1
+                return len(s) + 2
             set_error(line_no, 'Unterminated string.')
 
         def number():
             i = 0
-            for i, cc in enumerate(line[col_no:]):
+            for i, cc in enumerate(code[current_idx:]):
                 if cc not in NUMBER_TOKEN_CHARS:
                     break
-            n = line[col_no-1:col_no+i]
+            n = code[current_idx:current_idx+i]
             if n.endswith('.') or len([x for x in n if x == '.']) > 1:
                 set_error(line_no, f'Invalid number {n}')
             else:
                 self.add_token(TokenType.NUMBER, n, float(n), line_no)
-            return len(n) - 1
+            return len(n)
 
         def idetifier():
             i = 0
-            for i, cc in enumerate(line[col_no:]):
+            for i, cc in enumerate(code[current_idx:]):
                 if cc not in IDENTIFIER_TOKEN_CHARS:
                     break
-            n = line[col_no-1:col_no+i]
+            n = code[current_idx:current_idx+i]
             self.add_token(TokenType.IDENTIFIER, n, 'null', line_no)
-            return len(n) - 1
+            return len(n)
 
         def reserved():
-            rest = line[col_no-1:]
+            rest = code[current_idx:]
             for w in RESERVED_WORDS:
                 if rest.startswith(w):
                     self.add_token(RESERVED_WORDS[w], w, 'null', line_no)
-                    return len(w) - 1
+                    return len(w)
 
 
         self.tokens = []
-        self.has_errors = False
-        for line_no, line in enumerate(code.splitlines(), 1):
-            line += '\n'
-            skip = 0
-            for col_no, c in enumerate(line, 1):
-                if skip:
-                    skip -= 1
-                    continue
-                if c in string.whitespace:
-                    continue
+        line_no, current_idx = 1, 0
+        n = len(code)
+        while 0 <= current_idx < n:
+            c = code[current_idx]
+            if c == '\n':
+                line_no += 1
 
-                if c in COMPARISON_TOKEN_START and (next_c := next_match('=')):
-                    c = c + next_c
-                    skip = 1
+            if c in string.whitespace:
+                current_idx += 1
+                continue
 
-                if c == '/' and (next_c := next_match('/')):
+            if c in COMPARISON_TOKEN_START and (next_c := next_match('=')):
+                c = c + next_c
+
+            if c == '/' and (next_c := next_match('/')):
+                c = c + next_c
+                current_idx = code.find('\n', current_idx)
+                continue
+
+            if c == '"':
+                if skip := string_literal():
+                    current_idx += skip
+                    continue
+                else:
                     break
 
-                if c == '"':
-                    if skip := string_literal():
-                        continue
-                    else:
-                        break
+            if c in string.digits:
+                current_idx += number()
+                continue
 
-                if c in string.digits:
-                    skip = number()
+            if c in RESERVED_WORDS_START:
+                if skip := reserved():
+                    current_idx += skip
                     continue
+            if c in IDENTIFIER_TOKEN_START:
+                current_idx += idetifier()
+                continue
 
-                if c in RESERVED_WORDS_START:
-                    if skip := reserved():
-                        continue
-
-                if c in IDENTIFIER_TOKEN_START:
-                    skip = idetifier()
-                    continue
-
-                if (token := ONE_OR_TWO_CHAR_TOKENS.get(c)) is None:
-                    set_error(line_no, f'Unexpected character: {c}')
-                else:
-                    self.add_token(token, c, 'null', line_no)
+            if (token := ONE_OR_TWO_CHAR_TOKENS.get(c)) is None:
+                set_error(line_no, f'Unexpected character: {c}')
+                current_idx += 1
+            else:
+                self.add_token(token, c, 'null', line_no)
+                current_idx += len(c)
 
         self.add_token(TokenType.EOF, '',  'null', -1)
         return self.tokens
 
+def execute(statement):
+    statement.evaluate()
 
-class Parser:
-    def parse(self, code):
-        self.tokens = Tokenizer().scan(code)
+class Interpreter:
+    def __init__(self, code):
+        self.code = code
+
+    def interpret(self):
+        for statement in self.parse():
+            execute(statement)
+
+    def parse(self, parse_only=False):
+        self.tokens = Tokenizer().scan(self.code)
         self.current = 0
+        if parse_only:
+            try:
+                return self.expression()
+            except ParseError:
+                return
+
+        statements = []
         try:
-            return self.expression()
+            while not self.is_at_end():
+                statements.append(self.statement())
+            return statements
         except ParseError:
-            return None
+            return []
+
+    def statement(self):
+        if self.match(TokenType.PRINT):
+            return self.print_statement()
+        return self.expression_statement()
+
+    def print_statement(self):
+        value = self.expression()
+        self.consume(TokenType.SEMICOLON, "Expect ';' after value.")
+        return Print(value)
+
+    def expression_statement(self):
+        value = self.expression()
+        self.consume(TokenType.SEMICOLON, "Expect ';' after expression.")
+        return Expression(value)
 
     def expression(self):
         return self.equality()
@@ -521,14 +577,16 @@ def main():
         case 'tokenize':
             Tokenizer(True).scan(code)
         case 'parse':
-            AST(Parser().parse(code)).print()
+            AST(Interpreter(code).parse(True)).print()
         case 'evaluate':
             try:
-                if (tree := Parser().parse(code)) is not None:
+                if (tree := Interpreter(code).parse(True)) is not None:
                     print(to_str(tree.evaluate(), True))
             except EvaluationError as e:
                 sys.stderr.write(f'{e.msg}\n[line {e.line_no}]\n')
                 error_code = 70
+        case 'run':
+            Interpreter(code).interpret()
 
     if error_code:
         raise SystemExit(error_code)
