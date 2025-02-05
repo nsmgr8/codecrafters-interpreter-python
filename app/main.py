@@ -305,7 +305,7 @@ class Tokenizer:
     def scan(self, code):
         def next_match(char):
             next_idx = current_idx + 1
-            if next_idx < n and (next_c := code[next_idx]) == char:
+            if next_idx < n_code and (next_c := code[next_idx]) == char:
                 return next_c
 
         def string_literal():
@@ -321,21 +321,31 @@ class Tokenizer:
             for i, cc in enumerate(code[current_idx:]):
                 if cc not in NUMBER_TOKEN_CHARS:
                     break
-            n = code[current_idx:current_idx+i]
-            if n.endswith('.') or len([x for x in n if x == '.']) > 1:
-                set_error(line_no, f'Invalid number {n}')
+            num = code[current_idx:current_idx+i]
+            if num.endswith('.') or len([x for x in num if x == '.']) > 1:
+                set_error(line_no, f'Invalid number {num}')
             else:
-                self.add_token(TokenType.NUMBER, n, float(n), line_no)
-            return len(n)
+                try:
+                    self.add_token(TokenType.NUMBER, num, float(num), line_no)
+                except ValueError:
+                    print(num, current_idx, code[current_idx:])
+                    for i, cc in enumerate(code[current_idx:]):
+                        print('find digit', i, repr(cc))
+                        if cc not in NUMBER_TOKEN_CHARS:
+                            break
+                    for t in self.tokens:
+                        print(t)
+                    raise
+            return len(num)
 
         def idetifier():
             i = 0
             for i, cc in enumerate(code[current_idx:]):
                 if cc not in IDENTIFIER_TOKEN_CHARS:
                     break
-            n = code[current_idx:current_idx+i]
-            self.add_token(TokenType.IDENTIFIER, n, 'null', line_no)
-            return len(n)
+            ident = code[current_idx:current_idx+i]
+            self.add_token(TokenType.IDENTIFIER, ident, 'null', line_no)
+            return len(ident)
 
         def reserved():
             rest = code[current_idx:]
@@ -347,8 +357,8 @@ class Tokenizer:
 
         self.tokens = []
         line_no, current_idx = 1, 0
-        n = len(code)
-        while 0 <= current_idx < n:
+        n_code = len(code)
+        while 0 <= current_idx < n_code:
             c = code[current_idx]
             if c == '\n':
                 line_no += 1
