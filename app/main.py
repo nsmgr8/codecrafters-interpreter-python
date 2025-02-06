@@ -1,6 +1,7 @@
 from enum import StrEnum, auto
 import string
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, NamedTuple
 
@@ -317,33 +318,21 @@ class Tokenizer:
             set_error(line_no, 'Unterminated string.')
 
         def number():
-            i = 0
-            for i, cc in enumerate(code[current_idx:]):
-                if cc not in NUMBER_TOKEN_CHARS:
-                    break
-            num = code[current_idx:current_idx+i]
+            i = current_idx
+            while i < n_code and code[i] in NUMBER_TOKEN_CHARS:
+                i += 1
+            num = code[current_idx:i]
             if num.endswith('.') or len([x for x in num if x == '.']) > 1:
                 set_error(line_no, f'Invalid number {num}')
             else:
-                try:
-                    self.add_token(TokenType.NUMBER, num, float(num), line_no)
-                except ValueError:
-                    print(num, current_idx, code[current_idx:])
-                    for i, cc in enumerate(code[current_idx:]):
-                        print('find digit', i, repr(cc))
-                        if cc not in NUMBER_TOKEN_CHARS:
-                            break
-                    for t in self.tokens:
-                        print(t)
-                    raise
+                self.add_token(TokenType.NUMBER, num, float(num), line_no)
             return len(num)
 
         def idetifier():
-            i = 0
-            for i, cc in enumerate(code[current_idx:]):
-                if cc not in IDENTIFIER_TOKEN_CHARS:
-                    break
-            ident = code[current_idx:current_idx+i]
+            i = current_idx
+            while i < n_code and code[i] in IDENTIFIER_TOKEN_CHARS:
+                i += 1
+            ident = code[current_idx:i]
             self.add_token(TokenType.IDENTIFIER, ident, 'null', line_no)
             return len(ident)
 
@@ -428,9 +417,9 @@ class Interpreter:
         try:
             while not self.is_at_end():
                 statements.append(self.statement())
-            return statements
         except ParseError:
-            return []
+            ...
+        return statements
 
     def statement(self):
         if self.match(TokenType.PRINT):
@@ -580,6 +569,16 @@ class Interpreter:
             self.advance()
 
 
+@contextmanager
+def evaluation_error():
+    global error_code
+    try:
+        yield
+    except EvaluationError as e:
+        sys.stderr.write(f'{e.msg}\n[line {e.line_no}]\n')
+        error_code = 70
+
+
 def main():
     global error_code
     command, code = get_code()
@@ -589,14 +588,12 @@ def main():
         case 'parse':
             AST(Interpreter(code).parse(True)).print()
         case 'evaluate':
-            try:
+            with evaluation_error():
                 if (tree := Interpreter(code).parse(True)) is not None:
                     print(to_str(tree.evaluate(), True))
-            except EvaluationError as e:
-                sys.stderr.write(f'{e.msg}\n[line {e.line_no}]\n')
-                error_code = 70
         case 'run':
-            Interpreter(code).interpret()
+            with evaluation_error():
+                Interpreter(code).interpret()
 
     if error_code:
         raise SystemExit(error_code)
