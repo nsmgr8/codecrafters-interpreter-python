@@ -57,3 +57,13 @@ class If(Statement):
             self.thenBranch.evaluate()
         elif self.elseBranch:
             self.elseBranch.evaluate()
+
+
+@dataclass
+class While(Statement):
+    condition: Expr
+    body: Statement
+
+    def evaluate(self):
+        while utils.is_truthy(self.condition.evaluate()):
+            self.body.evaluate()
