@@ -4,7 +4,11 @@ from .expressions import Expr
 from .tokenizer import Token
 
 
-class Statement: ...
+class Statement:
+    def evaluate(self): ...
+
+    def is_truthy(self, value):
+        return bool(value)
 
 @dataclass
 class Print(Statement):
@@ -43,3 +47,16 @@ class Block(Statement):
                 stmt.evaluate()
         finally:
             environment.env = previous_env
+
+
+@dataclass
+class If(Statement):
+    condition: Expr
+    thenBranch: Statement
+    elseBranch: Statement | None
+
+    def evaluate(self):
+        if self.is_truthy(self.condition.evaluate()):
+            self.thenBranch.evaluate()
+        elif self.elseBranch:
+            self.elseBranch.evaluate()
