@@ -26,6 +26,7 @@ class Interpreter:
             return self.statement()
         except error.ParseError:
             self.synchronize()
+            raise
 
     def var_declaration(self):
         name = self.consume(TokenType.IDENTIFIER, "Expect variable name.")
@@ -45,14 +46,44 @@ class Interpreter:
             return self.print_statement()
         if self.match(TokenType.WHILE):
             return self.while_statement()
+        if self.match(TokenType.FOR):
+            return self.for_statement()
         if self.match(TokenType.LEFT_BRACE):
             return self.block()
         return self.expression_statement()
 
+    def for_statement(self):
+        self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.")
+        if self.match(TokenType.SEMICOLON):
+            initializer = None
+        elif self.match(TokenType.VAR):
+            initializer = self.var_declaration()
+        else:
+            initializer = self.expression_statement()
+        if not self.check(TokenType.SEMICOLON):
+            condition = self.expression()
+        else:
+            condition = expressions.Literal(True)
+        self.consume(TokenType.SEMICOLON, "Expect ';' after loop condition.")
+
+        if not self.check(TokenType.RIGHT_PAREN):
+            increment = self.expression()
+        else:
+            increment = None
+        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after loop condition.")
+        body = self.statement()
+        if increment:
+            body = statements.Block([body, statements.Expression(increment)])
+        body = statements.While(condition, body)
+        if initializer:
+            body = statements.Block([initializer, body])
+        return body
+
+
     def while_statement(self):
-        self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.")
+        self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.")
         condition = self.expression()
-        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after if condition.")
+        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.")
         body = self.statement()
         return statements.While(condition, body)
 
