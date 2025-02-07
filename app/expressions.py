@@ -3,14 +3,7 @@ from typing import Any
 from . import utils, tokenizer, error, environment 
 
 class Expr:
-    def evaluate(self) -> Any:
-        return ''
-
-    def is_truthy(self, value):
-        return bool(value)
-
-    def is_equal(self, left, right):
-        return left == right
+    def evaluate(self) -> Any: ...
 
 @dataclass
 class Literal(Expr):
@@ -23,6 +16,23 @@ class Literal(Expr):
         return utils.to_str(self.value)
 
 @dataclass
+class Logical(Expr):
+    left: Expr
+    operator: tokenizer.Token
+    right: Expr
+
+    def evaluate(self):
+        left = self.left.evaluate()
+
+        if self.operator.type == tokenizer.TokenType.OR:
+            if utils.is_truthy(left):
+                return left
+        else:
+            if not utils.is_truthy(left):
+                return left
+        return self.right.evaluate()
+
+@dataclass
 class Unary(Expr):
     operator: tokenizer.Token
     right: Expr
@@ -31,7 +41,7 @@ class Unary(Expr):
         right = self.right.evaluate()
         match self.operator.type:
             case tokenizer.TokenType.BANG:
-                return not self.is_truthy(right)
+                return not utils.is_truthy(right)
             case tokenizer.TokenType.MINUS:
                 if not isinstance(right, float):
                     raise error.EvaluationError(self.operator.line, "Operand must be a number.")
@@ -84,9 +94,9 @@ class Binary(Expr):
                     raise error.EvaluationError(self.operator.line, "Operands must be number.")
                 return left <= right
             case tokenizer.TokenType.BANG_EQUAL:
-                return not self.is_equal(left, right)
+                return not utils.is_equal(left, right)
             case tokenizer.TokenType.EQUAL_EQUAL:
-                return self.is_equal(left, right)
+                return utils.is_equal(left, right)
 
     def __str__(self):
         return utils.parenthesize(self.operator.lexeme, str(self.left), str(self.right))

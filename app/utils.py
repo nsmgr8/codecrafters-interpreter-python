@@ -39,3 +39,12 @@ def either_numbers_or_strings_operands(left, right):
         return True
     return False
 
+def is_truthy(value):
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    return True
+
+def is_equal(left, right):
+    return left == right

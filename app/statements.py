@@ -7,9 +7,6 @@ from .tokenizer import Token
 class Statement:
     def evaluate(self): ...
 
-    def is_truthy(self, value):
-        return bool(value)
-
 @dataclass
 class Print(Statement):
     expression: Expr
@@ -56,7 +53,7 @@ class If(Statement):
     elseBranch: Statement | None
 
     def evaluate(self):
-        if self.is_truthy(self.condition.evaluate()):
+        if utils.is_truthy(self.condition.evaluate()):
             self.thenBranch.evaluate()
         elif self.elseBranch:
             self.elseBranch.evaluate()

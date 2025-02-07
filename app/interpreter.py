@@ -104,8 +104,24 @@ class Interpreter:
     def peek(self):
         return self.tokens[self.current]
 
-    def assignment(self):
+    def or_(self):
+        expr = self.and_()
+        while self.match(TokenType.OR):
+            op = self.previous()
+            right = self.and_()
+            expr = expressions.Logical(expr, op, right)
+        return expr
+
+    def and_(self):
         expr = self.equality()
+        while self.match(TokenType.AND):
+            op = self.previous()
+            right = self.equality()
+            expr = expressions.Logical(expr, op, right)
+        return expr
+
+    def assignment(self):
+        expr = self.or_()
 
         if self.match(TokenType.EQUAL):
             equals = self.previous()
