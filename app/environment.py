@@ -1,3 +1,4 @@
+from app.function import Clock
 from .error import EvaluationError
 
 class Environment:
@@ -17,7 +18,7 @@ class Environment:
         raise EvaluationError(name.line, f"Undefined variable '{name.lexeme}'.")
 
     def set(self, name, value):
-        self.values[name.lexeme] = value
+        self.values[name] = value
 
     def update(self, name, value):
         if name.lexeme in self.values:
@@ -30,3 +31,4 @@ class Environment:
 
 
 env = Environment()
+env.set('clock', Clock())

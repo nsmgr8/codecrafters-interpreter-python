@@ -29,7 +29,7 @@ class Var(Statement):
     initializer: Expr
 
     def evaluate(self):
-        environment.env.set(self.name, self.initializer.evaluate())
+        environment.env.set(self.name.lexeme, self.initializer.evaluate())
 
 
 @dataclass

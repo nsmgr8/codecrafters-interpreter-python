@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
+
+from app.function import Callable
 from . import utils, tokenizer, error, environment 
 
 class Expr:
@@ -126,3 +128,20 @@ class Assignment(Expr):
 
     def evaluate(self):
         return environment.env.update(self.name, self.value.evaluate())
+
+@dataclass
+class Call(Expr):
+    callee: Expr
+    paren: tokenizer.Token
+    arguments: list[Expr]
+
+    def evaluate(self):
+        callee = self.callee.evaluate()
+        if not isinstance(callee, Callable):
+            raise error.EvaluationError(self.paren.line, "Can only call functions and classes.")
+        arity = callee.arity()
+        nargs = len(self.arguments)
+        if arity != nargs:
+            raise error.EvaluationError(self.paren.line, f"Expected {arity} arguments but got {nargs}.")
+        func = callee
+        return func.call(None, [arg.evaluate() for arg in self.arguments])
