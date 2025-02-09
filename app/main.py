@@ -8,18 +8,16 @@ def main():
         case 'tokenize':
             Interpreter(code).tokenize(True)
         case 'parse':
-            with error.handled_parse_error():
+            with error.handled_error():
                 if expression := Interpreter(code).parse():
                     print(expression)
         case 'evaluate':
-            with error.evaluation_error():
-                with error.handled_parse_error():
-                    if (tree := Interpreter(code).parse()) is not None:
-                        print(utils.to_str(tree.evaluate(), True))
+            with error.handled_error():
+                if (tree := Interpreter(code).parse()) is not None:
+                    print(utils.to_str(tree.evaluate(), True))
         case 'run':
-            with error.evaluation_error():
-                with error.handled_parse_error():
-                    Interpreter(code).interpret()
+            with error.handled_error():
+                Interpreter(code).interpret()
 
     if error.error_code:
         raise SystemExit(error.error_code)

@@ -19,14 +19,33 @@ class Interpreter:
             if stmt := self.declaration():
                 stmt.evaluate()
 
+    # statements
     def declaration(self):
         try:
+            if self.match(TokenType.FUN):
+                return self.function('function')
             if self.match(TokenType.VAR):
                 return self.var_declaration()
             return self.statement()
         except error.ParseError:
             self.synchronize()
             raise
+
+    def function(self, kind):
+        name = self.consume(TokenType.IDENTIFIER, f"Expect {kind} name.")
+        self.consume(TokenType.LEFT_PAREN, f"Expect '(' after {kind} name.")
+        parameters = []
+        if not self.check(TokenType.RIGHT_PAREN):
+            while True:
+                if len(parameters) >= 255:
+                    self.error("Can't have more than 255 parameters.")
+                parameters.append(self.consume(TokenType.IDENTIFIER, "Expect parameter name."))
+                if not self.match(TokenType.COMMA):
+                    break
+        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
+        self.consume(TokenType.LEFT_BRACE, f"Expect '{{' before {kind} body.")
+        body = self.block()
+        return statements.Function(name, parameters, body)
 
     def var_declaration(self):
         name = self.consume(TokenType.IDENTIFIER, "Expect variable name.")
@@ -44,6 +63,8 @@ class Interpreter:
             return self.if_statement()
         if self.match(TokenType.PRINT):
             return self.print_statement()
+        if self.match(TokenType.RETURN):
+            return self.return_statement()
         if self.match(TokenType.WHILE):
             return self.while_statement()
         if self.match(TokenType.FOR):
@@ -51,6 +72,14 @@ class Interpreter:
         if self.match(TokenType.LEFT_BRACE):
             return self.block()
         return self.expression_statement()
+
+    def return_statement(self):
+        if self.check(TokenType.SEMICOLON):
+            value = None
+        else:
+            value = self.expression()
+        self.consume(TokenType.SEMICOLON, "Expect ';' after return value.")
+        return statements.Return(value)
 
     def for_statement(self):
         self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'.")
@@ -116,33 +145,9 @@ class Interpreter:
         self.consume(TokenType.SEMICOLON, "Expect ';' after expression.")
         return statements.Expression(value)
 
+    # expressions
     def expression(self):
         return self.assignment()
-
-    def match(self, *types):
-        for type in types:
-            if self.check(type):
-                self.advance()
-                return True
-
-    def check(self, type):
-        if self.is_at_end():
-            return False
-        return self.peek().type == type
-
-    def is_at_end(self):
-        return self.peek().type == 'EOF'
-
-    def advance(self):
-        if not self.is_at_end():
-            self.current += 1
-        return self.previous()
-
-    def previous(self):
-        return self.tokens[self.current - 1]
-
-    def peek(self):
-        return self.tokens[self.current]
 
     def or_(self):
         expr = self.and_()
@@ -266,21 +271,46 @@ class Interpreter:
 
         raise self.error("Expect expression.")
 
+    # common utils
     def consume(self, type, msg):
         if self.check(type):
             return self.advance()
 
         raise self.error(msg)
 
+    def match(self, *types):
+        for type in types:
+            if self.check(type):
+                self.advance()
+                return True
+
+    def check(self, type):
+        if self.is_at_end():
+            return False
+        return self.peek().type == type
+
+    def is_at_end(self):
+        return self.peek().type == 'EOF'
+
+    def advance(self):
+        if not self.is_at_end():
+            self.current += 1
+        return self.previous()
+
+    def previous(self):
+        return self.tokens[self.current - 1]
+
+    def peek(self):
+        return self.tokens[self.current]
+
+    # error utils
     def error(self, msg):
         token = self.peek()
         if token.type == TokenType.EOF:
             where = " at end"
         else:
             where = f" at '{token.lexeme}'"
-        error.set_error(token.line, msg, where)
-
-        return error.ParseError()
+        raise error.ParseError(token.line, msg, where)
 
     def synchronize(self):
         self.advance()

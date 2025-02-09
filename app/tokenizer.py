@@ -1,4 +1,5 @@
 from enum import StrEnum, auto
+import re
 import string
 import sys
 from typing import NamedTuple
@@ -97,7 +98,6 @@ COMPARISON_TOKEN_START = '=!<>'
 NUMBER_TOKEN_CHARS = '.' + string.digits
 IDENTIFIER_TOKEN_START = string.ascii_letters + '_'
 IDENTIFIER_TOKEN_CHARS = IDENTIFIER_TOKEN_START + string.digits
-RESERVED_WORDS_START = set(w[0] for w in RESERVED_WORDS)
 
 
 class Token(NamedTuple):
@@ -132,7 +132,8 @@ class Tokenizer:
                 s = code[current_idx+1:end]
                 self.add_token(TokenType.STRING, f'"{s}"', s, line_no)
                 return len(s) + 2
-            error.set_error(line_no, 'Unterminated string.')
+            with error.handled_error():
+                raise error.ParseError(line_no, 'Unterminated string.')
 
         def number():
             i = current_idx
@@ -140,7 +141,8 @@ class Tokenizer:
                 i += 1
             num = code[current_idx:i]
             if num.endswith('.') or len([x for x in num if x == '.']) > 1:
-                error.set_error(line_no, f'Invalid number {num}')
+                with error.handled_error():
+                    raise error.ParseError(line_no, f'Invalid number {num}')
             else:
                 self.add_token(TokenType.NUMBER, num, float(num), line_no)
             return len(num)
@@ -150,15 +152,11 @@ class Tokenizer:
             while i < n_code and code[i] in IDENTIFIER_TOKEN_CHARS:
                 i += 1
             ident = code[current_idx:i]
-            self.add_token(TokenType.IDENTIFIER, ident, 'null', line_no)
+            if ident in RESERVED_WORDS:
+                self.add_token(RESERVED_WORDS[ident], ident, 'null', line_no)
+            else:
+                self.add_token(TokenType.IDENTIFIER, ident, 'null', line_no)
             return len(ident)
-
-        def reserved():
-            rest = code[current_idx:]
-            for w in RESERVED_WORDS:
-                if rest.startswith(w):
-                    self.add_token(RESERVED_WORDS[w], w, 'null', line_no)
-                    return len(w)
 
 
         self.tokens = []
@@ -192,16 +190,13 @@ class Tokenizer:
                 current_idx += number()
                 continue
 
-            if c in RESERVED_WORDS_START:
-                if skip := reserved():
-                    current_idx += skip
-                    continue
             if c in IDENTIFIER_TOKEN_START:
                 current_idx += idetifier()
                 continue
 
             if (token := ONE_OR_TWO_CHAR_TOKENS.get(c)) is None:
-                error.set_error(line_no, f'Unexpected character: {c}')
+                with error.handled_error():
+                    raise error.ParseError(line_no, f'Unexpected character: {c}')
                 current_idx += 1
             else:
                 self.add_token(token, c, 'null', line_no)
