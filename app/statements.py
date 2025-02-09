@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from . import utils, environment
+
+from . import utils, environment, error
 from .expressions import Expr
 from .tokenizer import Token
+from .function import LoxFunction
 
 
 class Statement:
@@ -29,7 +31,7 @@ class Var(Statement):
     initializer: Expr
 
     def evaluate(self):
-        environment.env.set(self.name.lexeme, self.initializer.evaluate())
+        environment.set_env(self.name.lexeme, self.initializer.evaluate())
 
 
 @dataclass
@@ -37,13 +39,9 @@ class Block(Statement):
     statements: list[Statement]
 
     def evaluate(self):
-        previous_env = environment.env
-        try:
-            environment.env = environment.Environment(environment.env)
+        with environment.enclosing():
             for stmt in self.statements:
                 stmt.evaluate()
-        finally:
-            environment.env = previous_env
 
 
 @dataclass
@@ -67,3 +65,24 @@ class While(Statement):
     def evaluate(self):
         while utils.is_truthy(self.condition.evaluate()):
             self.body.evaluate()
+
+
+@dataclass
+class Function(Statement):
+    name: Token
+    params: list[Token]
+    body: Block
+
+    def evaluate(self):
+        environment.set_env(self.name.lexeme, LoxFunction(self, environment.env))
+
+@dataclass
+class Return(Statement):
+    value: Expr | None
+
+    def evaluate(self):
+        if self.value:
+            value = self.value.evaluate()
+        else:
+            value = None
+        raise error.Return(value)

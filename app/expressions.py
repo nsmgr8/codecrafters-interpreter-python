@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.function import Callable
-from . import utils, tokenizer, error, environment 
+from . import utils, tokenizer, error, environment
 
 class Expr:
     def evaluate(self) -> Any: ...
@@ -96,9 +96,9 @@ class Binary(Expr):
                     raise error.EvaluationError(self.operator.line, "Operands must be number.")
                 return left <= right
             case tokenizer.TokenType.BANG_EQUAL:
-                return not utils.is_equal(left, right)
+                return left != right
             case tokenizer.TokenType.EQUAL_EQUAL:
-                return utils.is_equal(left, right)
+                return left == right
 
     def __str__(self):
         return utils.parenthesize(self.operator.lexeme, str(self.left), str(self.right))
@@ -118,7 +118,7 @@ class Variable(Expr):
     name: tokenizer.Token
 
     def evaluate(self):
-        return environment.env.get(self.name)
+        return environment.get_env(self.name)
 
 
 @dataclass
@@ -127,7 +127,7 @@ class Assignment(Expr):
     value: Expr
 
     def evaluate(self):
-        return environment.env.update(self.name, self.value.evaluate())
+        return environment.update_env(self.name, self.value.evaluate())
 
 @dataclass
 class Call(Expr):
@@ -143,5 +143,4 @@ class Call(Expr):
         nargs = len(self.arguments)
         if arity != nargs:
             raise error.EvaluationError(self.paren.line, f"Expected {arity} arguments but got {nargs}.")
-        func = callee
-        return func.call(None, [arg.evaluate() for arg in self.arguments])
+        return callee.call([arg.evaluate() for arg in self.arguments])

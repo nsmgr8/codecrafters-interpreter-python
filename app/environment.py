@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from app.function import Clock
 from .error import EvaluationError
 
@@ -32,3 +33,24 @@ class Environment:
 
 env = Environment()
 env.set('clock', Clock())
+
+
+def get_env(name):
+    return env.get(name)
+
+def set_env(name, value):
+    return env.set(name, value)
+
+def update_env(name, value):
+    return env.update(name, value)
+
+
+@contextmanager
+def enclosing(e=None):
+    global env
+    previous_env = env
+    env = Environment(e or env)
+    try:
+        yield
+    finally:
+        env = previous_env

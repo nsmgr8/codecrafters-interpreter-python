@@ -45,6 +45,3 @@ def is_truthy(value):
     if isinstance(value, bool):
         return value
     return True
-
-def is_equal(left, right):
-    return left == right

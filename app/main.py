@@ -4,22 +4,21 @@ from . import error, utils
 
 def main():
     command, code = utils.get_code()
+    interpreter = Interpreter(code)
     match command:
         case 'tokenize':
-            Interpreter(code).tokenize(True)
+            interpreter.tokenize(True)
         case 'parse':
-            with error.handled_parse_error():
-                if expression := Interpreter(code).parse():
+            with error.handled_error():
+                if expression := interpreter.parse():
                     print(expression)
         case 'evaluate':
-            with error.evaluation_error():
-                with error.handled_parse_error():
-                    if (tree := Interpreter(code).parse()) is not None:
-                        print(utils.to_str(tree.evaluate(), True))
+            with error.handled_error():
+                if (tree := interpreter.parse()) is not None:
+                    print(utils.to_str(tree.evaluate(), True))
         case 'run':
-            with error.evaluation_error():
-                with error.handled_parse_error():
-                    Interpreter(code).interpret()
+            with error.handled_error():
+                interpreter.interpret()
 
     if error.error_code:
         raise SystemExit(error.error_code)
